@@ -6,81 +6,124 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 
 const IntroSection = () => {
   const ref = useRef<HTMLElement>(null);
-  const [animationPhase, setAnimationPhase] = useState<'entering' | 'typing' | 'complete'>(
-    'entering',
-  );
-  const [typingText, setTypingText] = useState('');
+  const [typingText, setTypingText] = useState('moment');
+  const [isTypingForward, setIsTypingForward] = useState(false);
+  const [isTypingBackward, setIsTypingBackward] = useState(false);
+  const [hyphenExited, setHyphenExited] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end end'],
   });
 
-  // 하이픈+moment 컨테이너가 왼쪽 화면 밖에서 올바른 위치까지 이동
-  // 하이픈 끝에 moment가 붙어있음
-  const containerX = useTransform(scrollYProgress, [0, 0.03, 0.15], [-400, -400, 0]);
+  const hyphenWidth = useTransform(scrollYProgress, [0.03, 0.15, 0.22, 0.28], [500, 500, 500, 0]);
+  const hyphenOpacity = useTransform(scrollYProgress, [0.03, 0.05, 0.26, 0.28], [0, 1, 1, 0]);
+
+  const containerX = useTransform(scrollYProgress, [0.03, 0.15], [-500, 0]);
   const containerOpacity = useTransform(scrollYProgress, [0.03, 0.06], [0, 1]);
 
-  // 하이픈이 왼쪽으로 줄어들며 퇴장 (moment가 도착한 후)
-  const hyphenWidth = useTransform(scrollYProgress, [0.15, 0.22], [300, 0]);
-  const hyphenOpacity = useTransform(scrollYProgress, [0.2, 0.24], [1, 0]);
-
-  // About 타이틀
   const aboutOpacity = useTransform(scrollYProgress, [0.03, 0.1], [0, 1]);
   const aboutLineScale = useTransform(scrollYProgress, [0.05, 0.15], [0, 1]);
 
-  // 추가 콘텐츠 나타나는 타이밍 (타이핑 완료 후)
-  const descriptionOpacity = useTransform(scrollYProgress, [0.4, 0.47], [0, 1]);
-  const descriptionY = useTransform(scrollYProgress, [0.4, 0.47], [30, 0]);
+  const showSentence = useTransform(scrollYProgress, (value) => (value >= 0.42 ? 1 : 0));
 
-  const statsOpacity = useTransform(scrollYProgress, [0.5, 0.57], [0, 1]);
-  const statsY = useTransform(scrollYProgress, [0.5, 0.57], [30, 0]);
+  const descriptionOpacity = useTransform(scrollYProgress, [0.5, 0.57], [0, 1]);
+  const descriptionY = useTransform(scrollYProgress, [0.5, 0.57], [30, 0]);
 
-  const teamInfoOpacity = useTransform(scrollYProgress, [0.6, 0.67], [0, 1]);
-  const teamInfoY = useTransform(scrollYProgress, [0.6, 0.67], [30, 0]);
+  const statsOpacity = useTransform(scrollYProgress, [0.6, 0.67], [0, 1]);
+  const statsY = useTransform(scrollYProgress, [0.6, 0.67], [30, 0]);
 
-  // 애니메이션 페이즈 감지 (스크롤 되감기 지원)
+  const teamInfoOpacity = useTransform(scrollYProgress, [0.7, 0.77], [0, 1]);
+  const teamInfoY = useTransform(scrollYProgress, [0.7, 0.77], [30, 0]);
+
   useEffect(() => {
     const unsubscribe = scrollYProgress.on('change', (value) => {
-      if (value < 0.24) {
-        setAnimationPhase('entering');
-        setTypingText('');
-      } else if (value >= 0.24 && value < 0.35) {
-        if (animationPhase === 'entering') {
-          setAnimationPhase('typing');
-        }
+      if (value >= 0.28) {
+        setHyphenExited(true);
+      } else {
+        setHyphenExited(false);
+      }
+
+      if (value >= 0.3 && typingText === 'moment' && !isTypingForward && hyphenExited) {
+        setIsTypingForward(true);
+      }
+
+      if (value < 0.28 && typingText === '순간' && !isTypingBackward) {
+        setIsTypingBackward(true);
       }
     });
 
     return () => unsubscribe();
-  }, [scrollYProgress, animationPhase]);
+  }, [scrollYProgress, typingText, isTypingForward, isTypingBackward, hyphenExited]);
 
-  // 타이핑 효과
   useEffect(() => {
-    if (animationPhase !== 'typing') return;
+    if (!isTypingForward) return;
 
-    const targetText = '순간';
-    let currentIndex = 0;
+    let currentText = 'moment';
+    let timeoutId: NodeJS.Timeout;
 
-    const typingInterval = setInterval(() => {
-      if (currentIndex <= targetText.length) {
-        setTypingText(targetText.slice(0, currentIndex));
-        currentIndex++;
+    const deleteChar = () => {
+      if (currentText.length > 0) {
+        currentText = currentText.slice(0, -1);
+        setTypingText(currentText || '|');
+        timeoutId = setTimeout(deleteChar, 80);
       } else {
-        clearInterval(typingInterval);
-        setAnimationPhase('complete');
+        let idx = 0;
+        const targetText = '순간';
+        const typeChar = () => {
+          if (idx <= targetText.length) {
+            setTypingText(targetText.slice(0, idx) || '|');
+            idx++;
+            timeoutId = setTimeout(typeChar, 100);
+          } else {
+            setTypingText('순간');
+            setIsTypingForward(false);
+          }
+        };
+        typeChar();
       }
-    }, 150);
+    };
 
-    return () => clearInterval(typingInterval);
-  }, [animationPhase]);
+    deleteChar();
+    return () => clearTimeout(timeoutId);
+  }, [isTypingForward]);
+
+  useEffect(() => {
+    if (!isTypingBackward) return;
+
+    let currentText = '순간';
+    let timeoutId: NodeJS.Timeout;
+
+    const deleteChar = () => {
+      if (currentText.length > 0) {
+        currentText = currentText.slice(0, -1);
+        setTypingText(currentText || '|');
+        timeoutId = setTimeout(deleteChar, 100);
+      } else {
+        let idx = 0;
+        const targetText = 'moment';
+        const typeChar = () => {
+          if (idx <= targetText.length) {
+            setTypingText(targetText.slice(0, idx) || '|');
+            idx++;
+            timeoutId = setTimeout(typeChar, 80);
+          } else {
+            setTypingText('moment');
+            setIsTypingBackward(false);
+          }
+        };
+        typeChar();
+      }
+    };
+
+    deleteChar();
+    return () => clearTimeout(timeoutId);
+  }, [isTypingBackward]);
 
   return (
     <section ref={ref} className="relative bg-white" style={{ height: '400vh' }}>
-      {/* Sticky 컨테이너 */}
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden px-6 md:px-12 lg:px-24">
-        <div className="mx-auto w-full max-w-4xl">
-          {/* About 타이틀 */}
+      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
+        <div className="mx-auto w-full max-w-4xl px-6 md:px-12 lg:px-24">
           <motion.div className="mb-12 flex items-center gap-4" style={{ opacity: aboutOpacity }}>
             <motion.div
               className="h-px flex-1 origin-left bg-neutral-900"
@@ -93,18 +136,11 @@ const IntroSection = () => {
             />
           </motion.div>
 
-          {/* 메인 타이틀 영역 */}
           <div className="relative">
             <h3 className="text-4xl leading-tight font-bold text-neutral-900 md:text-5xl lg:text-6xl">
-              {/* 사용자의 - 타이핑 완료 후 나타남 */}
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={animationPhase === 'complete' ? { opacity: 1 } : { opacity: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                사용자의{' '}
-              </motion.span>
+              <motion.span style={{ opacity: showSentence }}>사용자의 </motion.span>
 
+              {/* 하이픈 + moment 컨테이너 - 함께 이동 */}
               <motion.span
                 className="inline-flex items-baseline"
                 style={{
@@ -112,73 +148,45 @@ const IntroSection = () => {
                   opacity: containerOpacity,
                 }}
               >
+                {/* 하이픈 - moment 왼쪽에 붙어있음 */}
                 <motion.span
-                  className="mb-1 inline-block h-0.75 self-end bg-[#4f52e1] md:h-1 lg:h-1.25"
+                  className="mr-1 inline-block h-1 self-center bg-[#4f52e1] md:h-1.5"
                   style={{
                     width: hyphenWidth,
                     opacity: hyphenOpacity,
                   }}
                 />
 
-                <span className="inline-block">
-                  {/* moment */}
-                  {animationPhase === 'entering' && (
-                    <span className="font-mono text-4xl font-bold text-[#4f52e1] md:text-5xl lg:text-6xl">
-                      moment
-                    </span>
-                  )}
-
-                  {(animationPhase === 'typing' || animationPhase === 'complete') && (
-                    <motion.span
-                      className="text-4xl font-bold text-[#4f52e1] md:text-5xl lg:text-6xl"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.2 }}
-                    >
+                {/* moment/순간 텍스트 */}
+                <span
+                  className={`${typingText === 'moment' || typingText.length > 2 ? 'font-mono' : ''} text-4xl font-bold text-[#4f52e1] md:text-5xl lg:text-6xl`}
+                >
+                  {typingText === '|' ? (
+                    <span className="inline-block h-[0.9em] w-1 animate-pulse bg-[#4f52e1] align-middle" />
+                  ) : (
+                    <>
                       {typingText}
-                      {animationPhase === 'typing' && (
-                        <motion.span
-                          className="ml-1 inline-block h-[0.9em] w-1 bg-[#4f52e1] align-middle"
-                          animate={{ opacity: [1, 0, 1] }}
-                          transition={{ duration: 0.6, repeat: Infinity }}
-                        />
+                      {(isTypingForward || isTypingBackward) && (
+                        <span className="ml-0.5 inline-block h-[0.9em] w-1 animate-pulse bg-[#4f52e1] align-middle" />
                       )}
-                    </motion.span>
+                    </>
                   )}
                 </span>
               </motion.span>
 
-              {/* 을 - 타이핑 완료 후 나타남 */}
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={animationPhase === 'complete' ? { opacity: 1 } : { opacity: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-              >
-                을
-              </motion.span>
+              <motion.span style={{ opacity: showSentence }}>을</motion.span>
               <br />
-              {/* 혁신하는데 최고의 장소 - 타이핑 완료 후 나타남 */}
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={animationPhase === 'complete' ? { opacity: 1 } : { opacity: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-              >
-                혁신하는데 최고의 장소
-              </motion.span>
+              <motion.span style={{ opacity: showSentence }}>혁신하는데 최고의 장소</motion.span>
             </h3>
 
-            {/* 설명 텍스트 - 타이핑 완료 후 나타남 */}
             <motion.p
               className="mt-6 text-xl leading-relaxed text-neutral-600"
-              initial={{ opacity: 0 }}
-              animate={animationPhase === 'complete' ? { opacity: 1 } : { opacity: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
+              style={{ opacity: showSentence }}
             >
               본교 입학지원시스템부터 선후배를 연결해주는 서비스, 커뮤니티 서비스를 만들어요.
             </motion.p>
           </div>
 
-          {/* Description - 스크롤에 따라 나타남 */}
           <motion.div
             className="mt-10 space-y-4"
             style={{ opacity: descriptionOpacity, y: descriptionY }}
@@ -192,7 +200,6 @@ const IntroSection = () => {
             </p>
           </motion.div>
 
-          {/* Stats - 스크롤에 따라 나타남 */}
           <motion.div
             className="mt-12 grid grid-cols-3 gap-8 border-y border-neutral-200 py-10"
             style={{ opacity: statsOpacity, y: statsY }}
@@ -211,7 +218,6 @@ const IntroSection = () => {
             </div>
           </motion.div>
 
-          {/* Team Info - 스크롤에 따라 나타남 */}
           <motion.div
             className="mt-10 space-y-6"
             style={{ opacity: teamInfoOpacity, y: teamInfoY }}
