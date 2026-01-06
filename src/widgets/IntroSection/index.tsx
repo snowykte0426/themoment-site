@@ -1,94 +1,221 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { motion, useScroll, useTransform } from 'framer-motion';
 
 const IntroSection = () => {
   const ref = useRef<HTMLElement>(null);
-  const transitionRef = useRef<HTMLDivElement>(null);
+  const [animationPhase, setAnimationPhase] = useState<
+    'entering' | 'positioned' | 'typing' | 'complete'
+  >('entering');
+  const [typingText, setTypingText] = useState('');
 
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start end', 'end start'],
   });
 
-  // 전환 효과를 위한 별도 스크롤 트래킹
-  const { scrollYProgress: transitionProgress } = useScroll({
-    target: transitionRef,
-    offset: ['start end', 'end start'],
-  });
+  const sectionOpacity = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0, 1, 1, 0]);
 
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.7, 0.85], [0, 1, 1, 0]);
+  // 하이픈+moment 전체가 왼쪽에서 들어옴
+  const containerX = useTransform(scrollYProgress, [0.05, 0.2], [-500, 0]);
+  const containerOpacity = useTransform(scrollYProgress, [0.05, 0.15], [0, 1]);
 
-  // 하이픈 확대 애니메이션
-  const hyphenScaleX = useTransform(transitionProgress, [0, 0.3, 0.7, 1], [1, 1, 50, 200]);
-  const hyphenScaleY = useTransform(transitionProgress, [0, 0.3, 0.7, 1], [1, 1, 30, 100]);
-  const hyphenOpacity = useTransform(transitionProgress, [0, 0.2, 0.5, 0.9], [0, 1, 1, 1]);
-  const textOpacity = useTransform(transitionProgress, [0, 0.2, 0.5, 0.7], [0, 1, 1, 0]);
-  const textScale = useTransform(transitionProgress, [0, 0.2, 0.5, 0.7], [0.9, 1, 1, 1.1]);
+  // 하이픈 width가 줄어들면서 왼쪽으로 퇴장
+  const hyphenWidth = useTransform(scrollYProgress, [0.2, 0.28, 0.38], [200, 200, 0]);
+  const hyphenOpacity = useTransform(scrollYProgress, [0.32, 0.4], [1, 0]);
+
+  // 애니메이션 페이즈 감지
+  useEffect(() => {
+    const unsubscribe = scrollYProgress.on('change', (value) => {
+      if (value < 0.28) {
+        setAnimationPhase('entering');
+      } else if (value >= 0.28 && value < 0.4) {
+        setAnimationPhase('positioned');
+      } else if (value >= 0.4 && animationPhase !== 'complete') {
+        setAnimationPhase('typing');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [scrollYProgress, animationPhase]);
+
+  // 타이핑 효과
+  useEffect(() => {
+    if (animationPhase !== 'typing') return;
+
+    const targetText = '순간';
+    let currentIndex = 0;
+
+    const typingInterval = setInterval(() => {
+      if (currentIndex <= targetText.length) {
+        setTypingText(targetText.slice(0, currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(typingInterval);
+        setAnimationPhase('complete');
+      }
+    }, 200);
+
+    return () => clearInterval(typingInterval);
+  }, [animationPhase]);
 
   return (
-    <>
-      <motion.section
-        ref={ref}
-        className="relative min-h-screen bg-white px-6 py-40 md:px-12 lg:px-24"
-        style={{ opacity }}
-      >
-        <motion.div className="mx-auto w-full max-w-4xl space-y-24">
-          {/* Title */}
+    <motion.section
+      ref={ref}
+      className="relative min-h-[200vh] bg-white"
+      style={{ opacity: sectionOpacity }}
+    >
+      <div className="sticky top-0 flex h-screen items-center px-6 md:px-12 lg:px-24">
+        <div className="mx-auto w-full max-w-4xl">
+          {/* About 타이틀 */}
           <motion.div
-            className="flex items-center gap-4"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.8 }}
+            className="mb-16 flex items-center gap-4"
+            style={{
+              opacity: useTransform(scrollYProgress, [0.1, 0.2], [0, 1]),
+            }}
           >
             <motion.div
-              className="h-px flex-1 bg-neutral-900"
-              initial={{ scaleX: 0 }}
-              whileInView={{ scaleX: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 1, delay: 0.2 }}
+              className="h-px flex-1 origin-left bg-neutral-900"
+              style={{
+                scaleX: useTransform(scrollYProgress, [0.15, 0.3], [0, 1]),
+              }}
             />
             <h2 className="font-mono text-2xl font-bold text-neutral-900">About</h2>
             <motion.div
-              className="h-px flex-1 bg-neutral-900"
-              initial={{ scaleX: 0 }}
-              whileInView={{ scaleX: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 1, delay: 0.2 }}
+              className="h-px flex-1 origin-right bg-neutral-900"
+              style={{
+                scaleX: useTransform(scrollYProgress, [0.15, 0.3], [0, 1]),
+              }}
             />
           </motion.div>
 
-          {/* Main Content */}
+          {/* 메인 타이틀 영역 */}
+          <div className="relative">
+            <h3 className="text-4xl leading-tight font-bold text-neutral-900 md:text-5xl lg:text-6xl">
+              {/* 사용자의 - 타이핑 완료 후 나타남 */}
+              <motion.span
+                initial={{ opacity: 0, y: 20 }}
+                animate={
+                  animationPhase === 'complete' ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
+                }
+                transition={{ duration: 0.5 }}
+              >
+                사용자의{' '}
+              </motion.span>
+
+              {/* 하이픈 + moment 컨테이너 - 왼쪽에서 함께 들어옴 */}
+              <motion.span
+                className="inline-flex items-baseline"
+                style={{
+                  x: containerX,
+                  opacity: containerOpacity,
+                }}
+              >
+                {/* 하이픈 - width가 줄어들면서 왼쪽으로 퇴장 */}
+                <motion.span
+                  className="inline-flex items-center justify-end overflow-hidden"
+                  style={{
+                    width: hyphenWidth,
+                    opacity: hyphenOpacity,
+                  }}
+                >
+                  <span className="text-4xl text-[#4f52e1] md:text-5xl lg:text-6xl">-</span>
+                </motion.span>
+
+                {/* moment → 순간 전환 영역 */}
+                <span className="relative inline-block">
+                  {/* moment */}
+                  <motion.span
+                    className="font-mono text-[#4f52e1]"
+                    animate={{
+                      opacity: animationPhase === 'typing' || animationPhase === 'complete' ? 0 : 1,
+                      display:
+                        animationPhase === 'typing' || animationPhase === 'complete'
+                          ? 'none'
+                          : 'inline',
+                    }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    moment
+                  </motion.span>
+
+                  {/* 타이핑되는 순간 */}
+                  {(animationPhase === 'typing' || animationPhase === 'complete') && (
+                    <motion.span
+                      className="text-[#4f52e1]"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {typingText}
+                      {animationPhase === 'typing' && (
+                        <motion.span
+                          className="ml-1 inline-block h-[0.9em] w-1 bg-[#4f52e1] align-middle"
+                          animate={{ opacity: [1, 0, 1] }}
+                          transition={{ duration: 0.6, repeat: Infinity }}
+                        />
+                      )}
+                    </motion.span>
+                  )}
+                </span>
+              </motion.span>
+
+              {/* 을 - 타이핑 완료 후 나타남 */}
+              <motion.span
+                initial={{ opacity: 0, y: 20 }}
+                animate={
+                  animationPhase === 'complete' ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
+                }
+                transition={{ duration: 0.5, delay: 0.1 }}
+              >
+                을
+              </motion.span>
+              <br />
+              {/* 혁신하는데 최고의 장소 - 타이핑 완료 후 나타남 */}
+              <motion.span
+                initial={{ opacity: 0, y: 20 }}
+                animate={
+                  animationPhase === 'complete' ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
+                }
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                혁신하는데 최고의 장소
+              </motion.span>
+            </h3>
+
+            {/* 설명 텍스트 - 타이핑 완료 후 나타남 */}
+            <motion.p
+              className="mt-8 text-2xl leading-relaxed text-neutral-600"
+              initial={{ opacity: 0, y: 20 }}
+              animate={animationPhase === 'complete' ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+            >
+              본교 입학지원시스템부터 선후배를 연결해주는 서비스, 커뮤니티 서비스를 만들어요.
+            </motion.p>
+          </div>
+        </div>
+      </div>
+
+      {/* 추가 콘텐츠 - 스크롤하면 보이는 영역 */}
+      <div className="bg-white px-6 py-24 md:px-12 lg:px-24">
+        <div className="mx-auto w-full max-w-4xl space-y-24">
+          {/* Description */}
           <motion.div
-            className="space-y-16"
+            className="space-y-8"
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            <div className="space-y-8">
-              <h3 className="text-5xl leading-tight font-bold text-neutral-900 md:text-6xl">
-                학교에 필요한 서비스를
-                <br />
-                함께 만들어갑니다
-              </h3>
-              <p className="text-2xl leading-relaxed text-neutral-600">
-                본교 입학지원시스템부터 선후배를 연결해주는 서비스, 커뮤니티 서비스를 만들어요.
-              </p>
-            </div>
-
-            <div className="space-y-8">
-              <p className="text-xl leading-relaxed text-neutral-700">
-                우리는 가장 빠르게 트렌드를 파악하고, 새로운 기술을 도입하고 있어요.
-              </p>
-              <p className="text-xl leading-relaxed text-neutral-700">
-                항상 새로운 비즈니스 모델에 대해 고민하고, 기술을 통해 사용자의 경험을 향상시키려
-                노력해요.
-              </p>
-            </div>
+            <p className="text-xl leading-relaxed text-neutral-700">
+              우리는 가장 빠르게 트렌드를 파악하고, 새로운 기술을 도입하고 있어요.
+            </p>
+            <p className="text-xl leading-relaxed text-neutral-700">
+              항상 새로운 비즈니스 모델에 대해 고민하고, 기술을 통해 사용자의 경험을 향상시키려
+              노력해요.
+            </p>
           </motion.div>
 
           {/* Stats */}
@@ -143,71 +270,9 @@ const IntroSection = () => {
               ))}
             </div>
           </motion.div>
-        </motion.div>
-      </motion.section>
-
-      {/* 전환 효과 섹션 - 하이픈 확대 */}
-      <div ref={transitionRef} className="relative bg-white" style={{ height: '150vh' }}>
-        <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden">
-          {/* 배경 - 하이픈이 확대되면서 채워짐 */}
-          <motion.div
-            className="absolute inset-0 z-0 bg-neutral-950"
-            style={{
-              opacity: useTransform(transitionProgress, [0.4, 0.7], [0, 1]),
-            }}
-          />
-
-          {/* team.the-moment 텍스트 */}
-          <motion.div
-            className="relative z-10 flex items-center justify-center"
-            style={{
-              opacity: textOpacity,
-              scale: textScale,
-            }}
-          >
-            <span className="font-mono text-4xl font-bold text-neutral-900 md:text-6xl lg:text-7xl">
-              team
-            </span>
-            <span className="font-mono text-4xl font-bold text-neutral-900 md:text-6xl lg:text-7xl">
-              .
-            </span>
-            <span className="font-mono text-4xl font-bold text-neutral-900 md:text-6xl lg:text-7xl">
-              the
-            </span>
-            {/* 확대되는 하이픈 */}
-            <motion.span
-              className="mx-1 inline-block origin-center font-mono text-4xl font-bold text-neutral-900 md:text-6xl lg:text-7xl"
-              style={{
-                scaleX: hyphenScaleX,
-                scaleY: hyphenScaleY,
-                opacity: hyphenOpacity,
-                backgroundColor: useTransform(
-                  transitionProgress,
-                  [0.3, 0.5],
-                  ['transparent', '#0a0a0a'],
-                ),
-                color: useTransform(transitionProgress, [0.3, 0.5], ['#171717', '#0a0a0a']),
-              }}
-            >
-              -
-            </motion.span>
-            <span className="font-mono text-4xl font-bold text-neutral-900 md:text-6xl lg:text-7xl">
-              moment
-            </span>
-          </motion.div>
-
-          {/* 페이드인 되는 안내 텍스트 */}
-          <motion.p
-            className="absolute bottom-32 font-mono text-sm tracking-widest text-neutral-500"
-            style={{
-              opacity: useTransform(transitionProgress, [0.2, 0.4, 0.6, 0.7], [0, 1, 1, 0]),
-            }}
-          >
-            SCROLL TO EXPLORE
-          </motion.p>
         </div>
       </div>
-    </>
+    </motion.section>
   );
 };
 
