@@ -11,34 +11,28 @@ const HeroSection = () => {
     offset: ['start start', 'end end'],
   });
 
-  // Phase 1: 초기 상태 (0 ~ 0.15) - 콘텐츠 표시
-  // Phase 2: 하이픈 늘어나기 (0.15 ~ 0.4) - 하이픈이 늘어나면서 moment 밀어냄
-  // Phase 3: 페이드아웃 및 전환 (0.4 ~ 0.7) - 흰색 배경으로 전환
-
-  // 하이픈 width 변화 - 스크롤 초반부터 반응
-  const hyphenWidth = useTransform(scrollYProgress, [0.1, 0.3, 0.45], [24, 400, 1200]);
+  // Phase 1: 초기 상태 (0 ~ 0.2) - 콘텐츠 표시
+  // Phase 2: 하이픈 늘어나기 (0.2 ~ 0.7) - 하이픈이 늘어나면서 moment 밀어냄
+  // Phase 3: 완료 (0.7 ~ 1) - 다음 섹션으로 넘어감
 
   // 콘텐츠 페이드아웃
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.08, 0.3, 0.4], [1, 1, 1, 0]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.15, 0.5, 0.65], [1, 1, 1, 0]);
 
   // the, team. 페이드아웃
-  const teamOpacity = useTransform(scrollYProgress, [0.2, 0.35], [1, 0]);
+  const teamOpacity = useTransform(scrollYProgress, [0.4, 0.6], [1, 0]);
 
   // moment 페이드아웃 (밀려나면서)
-  const momentOpacity = useTransform(scrollYProgress, [0.3, 0.45], [1, 0]);
+  const momentOpacity = useTransform(scrollYProgress, [0.5, 0.7], [1, 0]);
 
-  // 배경 전환
-  const bgToWhite = useTransform(scrollYProgress, [0.45, 0.6], [0, 1]);
+  // 하이픈 width
+  const hyphenWidth = useTransform(scrollYProgress, [0.2, 0.5, 0.75], [48, 600, 2000]);
 
   return (
-    <section ref={ref} className="relative bg-neutral-950" style={{ height: '300vh' }}>
+    <section ref={ref} className="relative bg-neutral-950" style={{ height: '200vh' }}>
       {/* Sticky container - 스크롤해도 화면에 고정 */}
       <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden">
         {/* Subtle gradient background */}
         <div className="absolute inset-0 bg-linear-to-br from-neutral-950 via-neutral-900 to-neutral-950" />
-
-        {/* 흰색 배경으로 전환 */}
-        <motion.div className="absolute inset-0 z-20 bg-white" style={{ opacity: bgToWhite }} />
 
         {/* Glowing accents */}
         <motion.div
@@ -129,17 +123,20 @@ const HeroSection = () => {
                 the
               </motion.span>
 
-              {/* 늘어나는 하이픈 - width로 실제 공간 차지하며 moment 밀어냄 */}
+              {/* 늘어나는 하이픈 - 오른쪽으로 쭉 늘어남 */}
               <motion.div
-                className="flex items-center justify-end"
-                style={{ width: hyphenWidth }}
+                className="relative flex items-center"
                 initial={{ width: 0 }}
-                animate={{ width: 24 }}
+                animate={{ width: 'auto' }}
                 transition={{ duration: 0.6, delay: 1 }}
               >
-                <span className="text-6xl md:text-8xl lg:text-9xl" style={{ color: '#4f52e1' }}>
-                  -
-                </span>
+                <motion.div
+                  className="h-[3px] origin-left bg-[#4f52e1] md:h-[4px] lg:h-[5px]"
+                  style={{ width: hyphenWidth }}
+                  initial={{ width: 0 }}
+                  animate={{ width: 48 }}
+                  transition={{ duration: 0.6, delay: 1 }}
+                />
               </motion.div>
 
               {/* 밀려나는 moment */}

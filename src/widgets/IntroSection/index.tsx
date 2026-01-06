@@ -16,13 +16,13 @@ const IntroSection = () => {
     offset: ['start start', 'end end'],
   });
 
-  // 하이픈+moment 전체가 왼쪽에서 들어옴
-  const containerX = useTransform(scrollYProgress, [0, 0.08], [-500, 0]);
-  const containerOpacity = useTransform(scrollYProgress, [0, 0.05], [0, 1]);
+  // 하이픈이 왼쪽 화면 끝에서 쭉 늘어난 상태로 moment까지 연결되어 있다가 줄어듦
+  // moment는 제자리에 고정, 하이픈만 왼쪽으로 줄어들며 퇴장
+  const hyphenWidth = useTransform(scrollYProgress, [0, 0.08, 0.18], [800, 400, 0]);
+  const hyphenOpacity = useTransform(scrollYProgress, [0, 0.05, 0.15, 0.2], [0, 1, 1, 0]);
 
-  // 하이픈 width가 줄어들면서 왼쪽으로 퇴장
-  const hyphenWidth = useTransform(scrollYProgress, [0.08, 0.12, 0.18], [200, 200, 0]);
-  const hyphenOpacity = useTransform(scrollYProgress, [0.14, 0.18], [1, 0]);
+  // moment는 처음부터 보이고 제자리에 있음
+  const momentOpacity = useTransform(scrollYProgress, [0, 0.05], [0, 1]);
 
   // About 타이틀
   const aboutOpacity = useTransform(scrollYProgress, [0, 0.05], [0, 1]);
@@ -91,7 +91,7 @@ const IntroSection = () => {
             />
           </motion.div>
 
-          {/* 메인 타이틀 영역 */}
+          {/* 메인 타이틀 영역 - 고정 위치 */}
           <div className="relative">
             <h3 className="text-4xl leading-tight font-bold text-neutral-900 md:text-5xl lg:text-6xl">
               {/* 사용자의 - 타이핑 완료 후 나타남 */}
@@ -105,61 +105,52 @@ const IntroSection = () => {
                 사용자의{' '}
               </motion.span>
 
-              {/* 하이픈 + moment 컨테이너 - 왼쪽에서 함께 들어옴 */}
-              <motion.span
-                className="inline-flex items-baseline"
-                style={{
-                  x: containerX,
-                  opacity: containerOpacity,
-                }}
+              {/* 하이픈 - 왼쪽 끝에서 moment까지 늘어났다가 줄어듦 */}
+              <motion.div
+                className="absolute top-1/2 right-full flex -translate-y-1/2 items-center"
+                style={{ opacity: hyphenOpacity }}
               >
-                {/* 하이픈 - width가 줄어들면서 왼쪽으로 퇴장 */}
+                <motion.div
+                  className="h-[3px] origin-right bg-[#4f52e1] md:h-[4px] lg:h-[5px]"
+                  style={{ width: hyphenWidth }}
+                />
+              </motion.div>
+
+              {/* moment → 순간 전환 영역 - 제자리에 고정 */}
+              <motion.span className="relative inline-block" style={{ opacity: momentOpacity }}>
+                {/* moment */}
                 <motion.span
-                  className="inline-flex items-center justify-end overflow-hidden"
-                  style={{
-                    width: hyphenWidth,
-                    opacity: hyphenOpacity,
+                  className="font-mono text-4xl font-bold text-[#4f52e1] md:text-5xl lg:text-6xl"
+                  animate={{
+                    opacity: animationPhase === 'typing' || animationPhase === 'complete' ? 0 : 1,
+                    display:
+                      animationPhase === 'typing' || animationPhase === 'complete'
+                        ? 'none'
+                        : 'inline',
                   }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <span className="text-4xl text-[#4f52e1] md:text-5xl lg:text-6xl">-</span>
+                  moment
                 </motion.span>
 
-                {/* moment → 순간 전환 영역 */}
-                <span className="relative inline-block">
-                  {/* moment */}
+                {/* 타이핑되는 순간 */}
+                {(animationPhase === 'typing' || animationPhase === 'complete') && (
                   <motion.span
-                    className="font-mono text-[#4f52e1]"
-                    animate={{
-                      opacity: animationPhase === 'typing' || animationPhase === 'complete' ? 0 : 1,
-                      display:
-                        animationPhase === 'typing' || animationPhase === 'complete'
-                          ? 'none'
-                          : 'inline',
-                    }}
-                    transition={{ duration: 0.3 }}
+                    className="text-[#4f52e1]"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    moment
+                    {typingText}
+                    {animationPhase === 'typing' && (
+                      <motion.span
+                        className="ml-1 inline-block h-[0.9em] w-1 bg-[#4f52e1] align-middle"
+                        animate={{ opacity: [1, 0, 1] }}
+                        transition={{ duration: 0.6, repeat: Infinity }}
+                      />
+                    )}
                   </motion.span>
-
-                  {/* 타이핑되는 순간 */}
-                  {(animationPhase === 'typing' || animationPhase === 'complete') && (
-                    <motion.span
-                      className="text-[#4f52e1]"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {typingText}
-                      {animationPhase === 'typing' && (
-                        <motion.span
-                          className="ml-1 inline-block h-[0.9em] w-1 bg-[#4f52e1] align-middle"
-                          animate={{ opacity: [1, 0, 1] }}
-                          transition={{ duration: 0.6, repeat: Infinity }}
-                        />
-                      )}
-                    </motion.span>
-                  )}
-                </span>
+                )}
               </motion.span>
 
               {/* 을 - 타이핑 완료 후 나타남 */}
